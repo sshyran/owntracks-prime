@@ -442,6 +442,5 @@ int main(void)
     mdmInit = false;
     gps.powerOff();
     
-    if (reset) mbed_reset();
     return 0;
 }

@@ -23,11 +23,7 @@ extern "C" void mbed_reset();
 #include "MQTTSocket.h"
 
 #include "rtos.h"
-
-#define WOLF 1
-#if WOLF
 #include "MQTTwolf.h"
-#endif
 
 #include "MQTTmbed.h"
 #include "MQTTClient.h"
@@ -78,10 +74,8 @@ static char payload[256];
 MQTTSocket mqttSocket;
 MQTT::Client<MQTTSocket, Countdown, 256, 5> *client;
 
-#if WOLF
 MQTTwolf mqttWolf;
 MQTT::Client<MQTTwolf, Countdown, 256, 5> *tlsClient;
-#endif
 
 DigitalOut myled(LED1);
 
@@ -245,10 +239,8 @@ int main(void)
 
                 int rc;
                 if (MQTTTLS) {
-                    #if WOLF
                     mqttWolf = MQTTwolf();
                     rc = mqttWolf.connect(mqtt_server, mqtt_port);
-                    #endif
                 } else {
                     mqttSocket = MQTTSocket();
                     rc = mqttSocket.connect(mqtt_server, mqtt_port);
@@ -289,27 +281,21 @@ int main(void)
                 data.will.qos = 1;
 
                 if (MQTTTLS) {
-                    #if WOLF
                     tlsClient = new MQTT::Client<MQTTwolf, Countdown, 256, 5>(mqttWolf);
-                    #endif
                 } else {
                     client = new MQTT::Client<MQTTSocket, Countdown, 256, 5>(mqttSocket);
                 }
 
                 int rc;
                 if (MQTTTLS) {
-                    #if WOLF
                     rc = tlsClient->connect(data);
-                    #endif
                 } else {
                     rc = client->connect(data);
                 }
                 if (rc != 0) {
                     printf("rc from MQTT connect is %d\r\n", rc);
                     if (MQTTTLS) {
-                        #if WOLF
                         mqttWolf.disconnect();
-                        #endif
                     } else {
                         mqttSocket.disconnect();
                     }
@@ -320,9 +306,7 @@ int main(void)
                     snprintf(pubtopic, sizeof(pubtopic), "%s/%s/start", BASETOPIC, deviceID);
                     snprintf(payload, sizeof(payload), "%s %s %d", deviceID, VERSION, time(NULL));
                     if (MQTTTLS) {
-                        #if WOLF
                         rc = tlsClient->publish(pubtopic, payload, strlen(payload), MQTT::QOS1, true);
-                        #endif
                     } else {
                         rc = client->publish(pubtopic, payload, strlen(payload), MQTT::QOS1, true);
                     }
@@ -333,9 +317,7 @@ int main(void)
 
                     snprintf(subtopic, sizeof(subtopic), "%s/%s/cmd", BASETOPIC, deviceID);
                     if (MQTTTLS) {
-                        #if WOLF
                         rc = tlsClient->subscribe(subtopic, MQTT::QOS1, &messageArrived);
-                        #endif
                     } else {
                         rc = client->subscribe(subtopic, MQTT::QOS1, &messageArrived);
                     }
@@ -345,9 +327,13 @@ int main(void)
                 }
             }
         }
-
+        
         if (mqttConnect) {
-            client->yield();
+            if (MQTTTLS) {
+                tlsClient->yield();
+            } else {
+                client->yield();
+            }
         }
 
         int ret;
@@ -419,9 +405,7 @@ int main(void)
                                     int rc;
                                     snprintf(pubtopic, sizeof(pubtopic), "%s/%s", BASETOPIC, deviceID);
                                     if (MQTTTLS) {
-                                        #if WOLF
                                         rc = tlsClient->publish(pubtopic, payload, strlen(payload), MQTT::QOS1, true);
-                                        #endif
                                     } else {
                                         rc = client->publish(pubtopic, payload, strlen(payload), MQTT::QOS1, true);
                                     }
@@ -445,16 +429,25 @@ int main(void)
                     }
 
                     if (mqttConnect) {
-                        client->yield(10L);
+                        if (MQTTTLS) {
+                            tlsClient->yield(10L);
+                        } else {
+                            client->yield(10L);
+                        }
                     }
 
-                    if (!client->isConnected()) {
+                    bool connected;
+                    if (MQTTTLS) {
+                        connected = tlsClient->isConnected();
+                    } else {
+                        connected = client->isConnected();
+                    }
+
+                    if (!connected) {
                         mqttConnect = false;
 
                         if (MQTTTLS) {
-                            #if WOLF
                             mqttWolf.disconnect();
-                            #endif
                         } else {
                             mqttSocket.disconnect();
                         }
@@ -488,15 +481,17 @@ int main(void)
 
 
     if (mqttConnect) {
-        client->disconnect();
+        if (MQTTTLS) {
+            tlsClient->disconnect();
+        } else {
+            client->disconnect();
+        }
         mqttConnect = false;
     }
 
     if (socketConnect) {
         if (MQTTTLS) {
-            #if WOLF
             mqttWolf.disconnect();
-            #endif
         } else {
             mqttSocket.disconnect();
         }
@@ -512,5 +507,10 @@ int main(void)
     mdmRegister = false;
     mdmInit = false;
     gps.powerOff();
+
+    if (reset) {
+        NVIC_SystemReset();
+    }
+
     return 0;
 }

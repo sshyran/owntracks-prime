@@ -1,4 +1,3 @@
-#if WOLF
 #if !defined(MQTTwolf_H)
 #define MQTTwolf_H
 
@@ -111,5 +110,4 @@ private:
     
 };
 
-#endif
 #endif

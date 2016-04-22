@@ -1,4 +1,0 @@
-#define MQTTHOST "localhost"
-#define MQTTPORT 1883
-#define MQTTUSER "username" // or NULL
-#define MQTTPASS "password" // or NULL

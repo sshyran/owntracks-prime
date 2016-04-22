@@ -512,6 +512,5 @@ int main(void)
     mdmRegister = false;
     mdmInit = false;
     gps.powerOff();
-
     return 0;
 }
